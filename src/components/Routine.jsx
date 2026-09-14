@@ -13,7 +13,8 @@ function Routine({
   clearDayRoutine,
   copyDayRoutine,
   dayNames,
-  updateDayName
+  updateDayName,
+  onStartWorkout
 }) {
   const [showCopyModal, setShowCopyModal] = useState(false)
   const [targetCopyDay, setTargetCopyDay] = useState(null)
@@ -67,7 +68,6 @@ function Routine({
 
   return (
     <section className="routine-section">
-
       <h2>Routine</h2>
 
       {/* Day Buttons */}
@@ -136,6 +136,21 @@ function Routine({
         </div>
       ) : (
         <>
+          {/* Start Workout button renders only when exercises exist */}
+          <button
+            type="button"
+            className="btn-start-workout"
+            onClick={() =>
+              onStartWorkout(
+                selectedDay,
+                dayNames[selectedDay] || `Day ${selectedDay}`,
+                currentExercises
+              )
+            }
+          >
+            ▶ Start Workout
+          </button>
+
           <div className="routine-day-actions">
             <button
               type="button"
@@ -222,7 +237,6 @@ function Routine({
           </div>
         </div>
       )}
-
     </section>
   )
 }

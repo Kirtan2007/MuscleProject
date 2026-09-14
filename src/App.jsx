@@ -2,12 +2,35 @@ import { useState, useEffect } from 'react'
 import MuscleFilter from './components/MuscleFilter'
 import ExerciseList from './components/ExerciseList'
 import Routine from './components/Routine'
+import ActiveWorkout from './components/ActiveWorkout'
 import './App.css'
-//mylfdom
+
 function App() {
   const [selectedMuscle, setSelectedMuscle] = useState('All')
   const [activeSection, setActiveSection] = useState('selector')
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeWorkout, setActiveWorkout] = useState(null)
+  const [routineSnapshot, setRoutineSnapshot] = useState(null)
+
+  // Load workout history from localStorage
+  const [workoutHistory, setWorkoutHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('muscleproject_history')
+      if (saved) return JSON.parse(saved)
+    } catch (e) {
+      console.error('Failed to load workout history:', e)
+    }
+    return []
+  })
+
+  // Save workout history to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('muscleproject_history', JSON.stringify(workoutHistory))
+    } catch (e) {
+      console.error('Failed to save workout history:', e)
+    }
+  }, [workoutHistory])
 
   // Default empty workout template
   const defaultWorkout = {
@@ -82,9 +105,7 @@ function App() {
   }
 
   const [selectedDay, setSelectedDay] = useState(null)
-
   const [exerciseToAssign, setExerciseToAssign] = useState(null)
-
   const [routineAddMode, setRoutineAddMode] = useState(false)
 
   const addExerciseToDay = (exercise, day) => {
@@ -229,9 +250,28 @@ function App() {
   }
 
   const handleRoutineAddExercise = () => {
+    // Save a deep snapshot of workout before modifications begin
+    setRoutineSnapshot(structuredClone(workout))
     setRoutineAddMode(true)
     setActiveSection('selector')
   }
+
+  const handleCancelRoutineAdd = () => {
+    // Restore original state if a snapshot exists
+    if (routineSnapshot) {
+      setWorkout(routineSnapshot)
+      setRoutineSnapshot(null)
+    }
+    setRoutineAddMode(false)
+    setActiveSection('routine')
+  }
+
+  const handleDoneRoutineAdd = () => {
+    // Keep changes and discard snapshot
+    setRoutineSnapshot(null)
+    setRoutineAddMode(false)
+    setActiveSection('routine')
+  } 
 
   const handleExerciseFromRoutine = (exercise) => {
     if (selectedDay !== null) {
@@ -239,14 +279,107 @@ function App() {
     }
   }
 
+  // Launch Active Workout session with baseline targets preserved
+  const handleStartWorkout = (dayNumber, dayName, exercises) => {
+    const preparedExercises = exercises.map((ex) => ({
+      ...ex,
+      sets: ex.sets.map((s) => ({
+        ...s,
+        targetReps: s.reps,       // Planned reference from routine
+        targetWeight: s.weight,   // Planned reference from routine
+        completed: false
+      }))
+    }))
+
+    const session = {
+      dayNumber,
+      dayName,
+      startTime: new Date().toISOString(),
+      exercises: structuredClone(preparedExercises)
+    }
+
+    setActiveWorkout(session)
+  }
+
+  // Cancel / Discard Active Workout
+  const handleCancelWorkout = () => {
+    const confirmDiscard = window.confirm(
+      'Are you sure you want to discard this workout? Progress will not be saved.'
+    )
+    if (confirmDiscard) {
+      setActiveWorkout(null)
+    }
+  }
+
+  // Finish Workout Handler
+  const handleFinishWorkout = (completedSession) => {
+    const endTime = new Date()
+    const startTime = new Date(completedSession.startTime)
+    const durationMinutes = Math.max(1, Math.round((endTime - startTime) / 60000))
+
+    let totalSetsCount = 0
+    let completedSetsCount = 0
+    let targetsHitCount = 0
+    const musclesSet = new Set()
+
+    completedSession.exercises.forEach((ex) => {
+      if (ex.muscle) musclesSet.add(ex.muscle.toLowerCase())
+
+      ex.sets.forEach((set) => {
+        totalSetsCount += 1
+        if (set.completed) {
+          completedSetsCount += 1
+          // Target Check: Checkbox ticked AND reps >= planned routine target
+          if (set.reps >= set.targetReps) {
+            targetsHitCount += 1
+          }
+        }
+      })
+    })
+
+    const newHistoryEntry = {
+      id: `session-${Date.now()}`,
+      dayNumber: completedSession.dayNumber,
+      dayName: completedSession.dayName,
+      date: endTime.toISOString(),
+      durationMinutes,
+      totalSets: totalSetsCount,
+      completedSets: completedSetsCount,
+      targetsHit: targetsHitCount,
+      muscles: Array.from(musclesSet),
+      exercises: completedSession.exercises
+    }
+
+    // Append new entry to history list
+    setWorkoutHistory((prevHistory) => [newHistoryEntry, ...prevHistory])
+
+    alert(
+      `Workout Logged!\n` +
+      `Duration: ${durationMinutes} min\n` +
+      `Sets Completed: ${completedSetsCount} / ${totalSetsCount}\n` +
+      `Targets Hit or Exceeded: ${targetsHitCount}`
+    )
+
+    setActiveWorkout(null)
+  }
+
+  // If a workout is active, show only the ActiveWorkout screen
+  if (activeWorkout) {
+    return (
+      <ActiveWorkout
+        activeWorkout={activeWorkout}
+        onCancelWorkout={handleCancelWorkout}
+        onFinishWorkout={handleFinishWorkout}
+      />
+    )
+  }
+
   return (
     <div className="app">
-
       <h1 className="title">MuscleProject</h1>
       <p className="subtitle">Your personal workout tracker</p>
 
       <div className="section-navigation">
-
         <button
           className={activeSection === 'selector' ? 'active-section' : ''}
           onClick={() => {
@@ -266,25 +399,31 @@ function App() {
         >
           Routine
         </button>
-
       </div>
 
       {activeSection === 'selector' && (
         <section className="exercise-selector-section">
-
           <h2>Exercise Selector</h2>
 
           {routineAddMode && selectedDay !== null && (
             <div className="routine-add-message">
-              <strong>
-                Add Exercise to Day {selectedDay}
-              </strong>
-
-              <button
-                onClick={() => setRoutineAddMode(false)}
-              >
-                Cancel
-              </button>
+              <strong>Add Exercise to {dayNames[selectedDay] || `Day ${selectedDay}`}</strong>
+              <div className="routine-add-actions">
+                <button
+                  type="button"
+                  className="btn-routine-done"
+                  onClick={handleDoneRoutineAdd}
+                >
+                  Done
+                </button>
+                <button
+                  type="button"
+                  className="btn-routine-cancel"
+                  onClick={handleCancelRoutineAdd}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
 
@@ -310,41 +449,29 @@ function App() {
 
           {exerciseToAssign !== null && !routineAddMode && (
             <div className="assignment-panel">
-
               <div className="assignment-content">
-
-                <h3>
-                  Add {exerciseToAssign.name}
-                </h3>
-
-                <p>
-                  Select the days for this exercise.
-                </p>
+                <h3>Add {exerciseToAssign.name}</h3>
+                <p>Select the days for this exercise.</p>
 
                 <div className="assignment-days">
-
                   {[1, 2, 3, 4, 5, 6, 7].map((day) => {
                     const assigned = workout[day].some(
-                    (exercise) => exercise.id === exerciseToAssign.id
-                  )
+                      (exercise) => exercise.id === exerciseToAssign.id
+                    )
 
-                  return (
-                    <button
-                      key={day}
-                      className={assigned ? 'assigned-day' : ''}
-                      onClick={() =>
-                        addExerciseToDay(
-                          exerciseToAssign,
-                          day
-                        )
-                      }
-                    >
-                      {dayNames[day] || `Day ${day}`}
-                      {assigned && ' ✓'}
-                    </button>
-                  )
-                })}
-
+                    return (
+                      <button
+                        key={day}
+                        className={assigned ? 'assigned-day' : ''}
+                        onClick={() =>
+                          addExerciseToDay(exerciseToAssign, day)
+                        }
+                      >
+                        {dayNames[day] || `Day ${day}`}
+                        {assigned && ' ✓'}
+                      </button>
+                    )
+                  })}
                 </div>
 
                 <button
@@ -353,12 +480,9 @@ function App() {
                 >
                   Done
                 </button>
-
               </div>
-
             </div>
           )}
-
         </section>
       )}
 
@@ -376,9 +500,9 @@ function App() {
           copyDayRoutine={copyDayRoutine}
           dayNames={dayNames}
           updateDayName={updateDayName}
+          onStartWorkout={handleStartWorkout}
         />
       )}
-
     </div>
   )
 }
