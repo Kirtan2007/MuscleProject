@@ -3,14 +3,21 @@ import MuscleFilter from './components/MuscleFilter'
 import ExerciseList from './components/ExerciseList'
 import Routine from './components/Routine'
 import ActiveWorkout from './components/ActiveWorkout'
+import WorkoutHistory from './components/WorkoutHistory'
+import MuscleHeatmap from './components/MuscleHeatmap'
 import './App.css'
 
 function App() {
   const [selectedMuscle, setSelectedMuscle] = useState('All')
-  const [activeSection, setActiveSection] = useState('selector')
+  const [activeSection, setActiveSection] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeWorkout, setActiveWorkout] = useState(null)
   const [routineSnapshot, setRoutineSnapshot] = useState(null)
+
+  const handleNavClick = (section) => {
+  setActiveSection((prev) => (prev === section ? null : section))
+  setRoutineAddMode(false)
+  }
 
   // Load workout history from localStorage
   const [workoutHistory, setWorkoutHistory] = useState(() => {
@@ -31,6 +38,13 @@ function App() {
       console.error('Failed to save workout history:', e)
     }
   }, [workoutHistory])
+
+  // Delete session handler for WorkoutHistory component
+  const handleDeleteHistorySession = (sessionId) => {
+    const confirmed = window.confirm('Are you sure you want to delete this workout record?')
+    if (!confirmed) return
+    setWorkoutHistory((prev) => prev.filter((item) => item.id !== sessionId))
+  }
 
   // Default empty workout template
   const defaultWorkout = {
@@ -173,7 +187,7 @@ function App() {
       ...previousWorkout,
       [day]: previousWorkout[day].map((exercise) => {
         if (exercise.id !== exerciseId) return exercise
-        if (exercise.sets.length >= 4) return exercise // Prevent exceeding 4 sets
+        if (exercise.sets.length >= 4) return exercise
 
         const lastSet = exercise.sets[exercise.sets.length - 1]
         const newSet = lastSet
@@ -193,7 +207,7 @@ function App() {
       ...previousWorkout,
       [day]: previousWorkout[day].map((exercise) => {
         if (exercise.id !== exerciseId) return exercise
-        if (exercise.sets.length <= 1) return exercise // Keep at least 1 set
+        if (exercise.sets.length <= 1) return exercise
 
         return {
           ...exercise,
@@ -250,14 +264,12 @@ function App() {
   }
 
   const handleRoutineAddExercise = () => {
-    // Save a deep snapshot of workout before modifications begin
     setRoutineSnapshot(structuredClone(workout))
     setRoutineAddMode(true)
     setActiveSection('selector')
   }
 
   const handleCancelRoutineAdd = () => {
-    // Restore original state if a snapshot exists
     if (routineSnapshot) {
       setWorkout(routineSnapshot)
       setRoutineSnapshot(null)
@@ -267,7 +279,6 @@ function App() {
   }
 
   const handleDoneRoutineAdd = () => {
-    // Keep changes and discard snapshot
     setRoutineSnapshot(null)
     setRoutineAddMode(false)
     setActiveSection('routine')
@@ -279,14 +290,13 @@ function App() {
     }
   }
 
-  // Launch Active Workout session with baseline targets preserved
   const handleStartWorkout = (dayNumber, dayName, exercises) => {
     const preparedExercises = exercises.map((ex) => ({
       ...ex,
       sets: ex.sets.map((s) => ({
         ...s,
-        targetReps: s.reps,       // Planned reference from routine
-        targetWeight: s.weight,   // Planned reference from routine
+        targetReps: s.reps,
+        targetWeight: s.weight,
         completed: false
       }))
     }))
@@ -301,7 +311,6 @@ function App() {
     setActiveWorkout(session)
   }
 
-  // Cancel / Discard Active Workout
   const handleCancelWorkout = () => {
     const confirmDiscard = window.confirm(
       'Are you sure you want to discard this workout? Progress will not be saved.'
@@ -311,7 +320,6 @@ function App() {
     }
   }
 
-  // Finish Workout Handler
   const handleFinishWorkout = (completedSession) => {
     const endTime = new Date()
     const startTime = new Date(completedSession.startTime)
@@ -329,7 +337,6 @@ function App() {
         totalSetsCount += 1
         if (set.completed) {
           completedSetsCount += 1
-          // Target Check: Checkbox ticked AND reps >= planned routine target
           if (set.reps >= set.targetReps) {
             targetsHitCount += 1
           }
@@ -350,7 +357,6 @@ function App() {
       exercises: completedSession.exercises
     }
 
-    // Append new entry to history list
     setWorkoutHistory((prevHistory) => [newHistoryEntry, ...prevHistory])
 
     alert(
@@ -363,7 +369,6 @@ function App() {
     setActiveWorkout(null)
   }
 
-  // If a workout is active, show only the ActiveWorkout screen
   if (activeWorkout) {
     return (
       <ActiveWorkout
@@ -379,27 +384,36 @@ function App() {
       <h1 className="title">MuscleProject</h1>
       <p className="subtitle">Your personal workout tracker</p>
 
+      {/* Top Navigation */}
       <div className="section-navigation">
         <button
           className={activeSection === 'selector' ? 'active-section' : ''}
-          onClick={() => {
-            setActiveSection('selector')
-            setRoutineAddMode(false)
-          }}
+          onClick={() => handleNavClick('selector')}
         >
           Exercise Selector
         </button>
 
         <button
           className={activeSection === 'routine' ? 'active-section' : ''}
-          onClick={() => {
-            setActiveSection('routine')
-            setRoutineAddMode(false)
-          }}
+          onClick={() => handleNavClick('routine')}
         >
           Routine
         </button>
+
+        <button
+          className={activeSection === 'history' ? 'active-section' : ''}
+          onClick={() => handleNavClick('history')}
+        >
+          History
+        </button>
       </div>
+
+      {/* DASHBOARD HERO: Heatmap appears here when no section is opened */}
+      {activeSection === null && (
+        <section className="dashboard-section">
+          <MuscleHeatmap history={workoutHistory} />
+        </section>
+      )}
 
       {activeSection === 'selector' && (
         <section className="exercise-selector-section">
@@ -501,6 +515,13 @@ function App() {
           dayNames={dayNames}
           updateDayName={updateDayName}
           onStartWorkout={handleStartWorkout}
+        />
+      )}
+
+      {activeSection === 'history' && (
+        <WorkoutHistory
+          history={workoutHistory}
+          onDeleteSession={handleDeleteHistorySession}
         />
       )}
     </div>
