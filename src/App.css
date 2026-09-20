@@ -819,16 +819,22 @@ h2 {
    MOBILE GYM LOGGER & ACTIVE SESSION
    ================================================== */
 
-/* Strictly hidden on desktop / mouse pointers */
+/* Hidden by default on laptops, desktops, and PCs */
 .btn-start-workout {
-  display: none !important;
+  display: none;
 }
 
-/* Only displayed on mobile touch screens */
-@media (max-width: 768px) and (pointer: coarse) {
+/* 
+  Only show on devices that satisfy BOTH:
+  1. Width is up to 1024px (phones, tablets, iPads)
+  2. Touch-screen interface (no mouse hover)
+*/
+@media (max-width: 1024px) and (hover: none) and (pointer: coarse) {
   .btn-start-workout {
     display: flex !important;
     width: 100%;
+    max-width: 480px;
+    margin: 14px auto;
     padding: 14px 20px;
     background-color: #22c55e;
     color: #ffffff;
@@ -837,7 +843,6 @@ h2 {
     border: none;
     border-radius: 10px;
     cursor: pointer;
-    margin: 12px 0;
     justify-content: center;
     align-items: center;
     gap: 8px;

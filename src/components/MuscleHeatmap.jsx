@@ -29,16 +29,21 @@ export default function MuscleHeatmap({ history = [] }) {
     }
 
     for (const session of history) {
-      const sessionDate = new Date(session.date || session.completedAt).getTime()
+      const sessionDate = new Date(session.date || session.completedAt || session.timestamp).getTime()
       if (isNaN(sessionDate)) continue
 
       const trainedMuscles = new Set()
-      if (session.muscles && Array.isArray(session.muscles)) {
+
+      // Primary source: uses the filtered muscles array saved on workout completion
+      if (session.muscles && Array.isArray(session.muscles) && session.muscles.length > 0) {
         session.muscles.forEach((m) => trainedMuscles.add(m.toLowerCase()))
-      }
-      if (session.exercises && Array.isArray(session.exercises)) {
+      } else if (session.exercises && Array.isArray(session.exercises)) {
+        // Fallback: verify that at least one set was actually completed
         session.exercises.forEach((ex) => {
-          if (ex.muscle) trainedMuscles.add(ex.muscle.toLowerCase())
+          const hasFinishedSet = ex.sets?.some((s) => s.completed && Number(s.reps) > 0)
+          if (hasFinishedSet && ex.muscle) {
+            trainedMuscles.add(ex.muscle.toLowerCase())
+          }
         })
       }
 

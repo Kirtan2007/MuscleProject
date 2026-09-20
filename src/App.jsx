@@ -5,6 +5,15 @@ import Routine from './components/Routine'
 import ActiveWorkout from './components/ActiveWorkout'
 import WorkoutHistory from './components/WorkoutHistory'
 import MuscleHeatmap from './components/MuscleHeatmap'
+import { useAuth } from './context/AuthContext'
+import { AuthModal } from './components/AuthModal'
+import { 
+  fetchUserRoutines, 
+  saveUserRoutineDay, 
+  fetchUserHistory, 
+  logCompletedWorkout 
+} from './lib/workoutService'
+import { supabase } from './lib/supabaseClient'
 import './App.css'
 
 function App() {
@@ -13,13 +22,29 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeWorkout, setActiveWorkout] = useState(null)
   const [routineSnapshot, setRoutineSnapshot] = useState(null)
+  const { user, signOut } = useAuth()
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
 
-  const handleNavClick = (section) => {
-  setActiveSection((prev) => (prev === section ? null : section))
-  setRoutineAddMode(false)
+
+  const handleSignOut = async () => {
+  await signOut()
+  setWorkout(defaultWorkout)
+  setWorkoutHistory([])
+  setDayNames(defaultDayNames)
+  localStorage.removeItem('muscleproject_workout')
+  localStorage.removeItem('muscleproject_history')
+  localStorage.removeItem('muscleproject_day_names')
+  setActiveSection(null)
+  setActiveWorkout(null)
   }
 
-  // Load workout history from localStorage
+  const handleNavClick = (section) => {
+    setActiveSection((prev) => (prev === section ? null : section))
+    setRoutineAddMode(false)
+  }
+
+  // Load workout history from localStorage as default
   const [workoutHistory, setWorkoutHistory] = useState(() => {
     try {
       const saved = localStorage.getItem('muscleproject_history')
@@ -40,10 +65,21 @@ function App() {
   }, [workoutHistory])
 
   // Delete session handler for WorkoutHistory component
-  const handleDeleteHistorySession = (sessionId) => {
+  const handleDeleteHistorySession = async (sessionId) => {
     const confirmed = window.confirm('Are you sure you want to delete this workout record?')
     if (!confirmed) return
+
     setWorkoutHistory((prev) => prev.filter((item) => item.id !== sessionId))
+
+    if (user?.id) {
+      const { error } = await supabase
+        .from('workout_history')
+        .delete()
+        .eq('id', sessionId)
+        .eq('user_id', user.id)
+
+      if (error) console.error('Failed to delete workout session from cloud:', error)
+    }
   }
 
   // Default empty workout template
@@ -70,14 +106,50 @@ function App() {
     return defaultWorkout
   })
 
-  // 2. Automatically save workout to localStorage whenever it changes
+  // 2. Automatically save workout to localStorage AND Supabase whenever it changes
   useEffect(() => {
     try {
       localStorage.setItem('muscleproject_workout', JSON.stringify(workout))
     } catch (error) {
       console.error('Failed to save workout to localStorage:', error)
     }
-  }, [workout])
+
+    // Only upload to cloud if user is logged in AND we are not in the middle of initial loading
+    if (user?.id && !isInitialLoad) {
+      Object.entries(workout).forEach(([dayId, exercises]) => {
+        saveUserRoutineDay(user.id, dayId, exercises)
+      })
+    }
+  }, [workout, user?.id, isInitialLoad])
+
+// --- CLOUD HYDRATION ON AUTH STATE CHANGE ---
+useEffect(() => {
+  const hydrateUserData = async () => {
+    if (user?.id) {
+      // 1. Fetch User's routines from cloud
+      const cloudRoutines = await fetchUserRoutines(user.id)
+      if (cloudRoutines && Object.keys(cloudRoutines).length > 0) {
+        setWorkout(cloudRoutines)
+      } else {
+        // New account with no routines saved yet: start empty
+        setWorkout(defaultWorkout)
+      }
+
+      // 2. Fetch User's workout history from cloud
+      const cloudHistory = await fetchUserHistory(user.id)
+      setWorkoutHistory(cloudHistory || [])
+    } else {
+      // Logged out / Guest: reset everything back to clean defaults
+      setWorkout(defaultWorkout)
+      setWorkoutHistory([])
+      localStorage.removeItem('muscleproject_workout')
+      localStorage.removeItem('muscleproject_history')
+    }
+  }
+
+  hydrateUserData()
+  setIsInitialLoad(false)
+}, [user?.id])
 
   // Default day labels
   const defaultDayNames = {
@@ -320,7 +392,7 @@ function App() {
     }
   }
 
-  const handleFinishWorkout = (completedSession) => {
+  const handleFinishWorkout = async (completedSession) => {
     const endTime = new Date()
     const startTime = new Date(completedSession.startTime)
     const durationMinutes = Math.max(1, Math.round((endTime - startTime) / 60000))
@@ -331,21 +403,28 @@ function App() {
     const musclesSet = new Set()
 
     completedSession.exercises.forEach((ex) => {
-      if (ex.muscle) musclesSet.add(ex.muscle.toLowerCase())
+      // Check if this exercise had at least one completed set
+      const hasCompletedAtLeastOneSet = ex.sets?.some(
+        (set) => set.completed && Number(set.reps) > 0
+      )
+
+      // Only mark the muscle as worked if at least one set was actually finished
+      if (hasCompletedAtLeastOneSet && ex.muscle) {
+        musclesSet.add(ex.muscle.toLowerCase())
+      }
 
       ex.sets.forEach((set) => {
         totalSetsCount += 1
         if (set.completed) {
           completedSetsCount += 1
-          if (set.reps >= set.targetReps) {
+          if (Number(set.reps) >= Number(set.targetReps)) {
             targetsHitCount += 1
           }
         }
       })
     })
 
-    const newHistoryEntry = {
-      id: `session-${Date.now()}`,
+    const sessionPayload = {
       dayNumber: completedSession.dayNumber,
       dayName: completedSession.dayName,
       date: endTime.toISOString(),
@@ -357,7 +436,24 @@ function App() {
       exercises: completedSession.exercises
     }
 
-    setWorkoutHistory((prevHistory) => [newHistoryEntry, ...prevHistory])
+    // ... rest of your save logic (Supabase / local state) remains untouched ...
+    if (user?.id) {
+      const savedRecord = await logCompletedWorkout(user.id, sessionPayload)
+      if (savedRecord) {
+        const newHistoryEntry = {
+          ...savedRecord.workout_data,
+          id: savedRecord.id,
+          timestamp: savedRecord.completed_at
+        }
+        setWorkoutHistory((prevHistory) => [newHistoryEntry, ...prevHistory])
+      }
+    } else {
+      const fallbackEntry = {
+        id: `session-${Date.now()}`,
+        ...sessionPayload
+      }
+      setWorkoutHistory((prevHistory) => [fallbackEntry, ...prevHistory])
+    }
 
     alert(
       `Workout Logged!\n` +
@@ -406,7 +502,21 @@ function App() {
         >
           History
         </button>
+
+        {/* Auth Control */}
+        {user ? (
+          <button onClick={handleSignOut} title={user.email}>
+            Log Out ({user.email.split('@')[0]})
+          </button>
+        ) : (
+          <button onClick={() => setAuthModalOpen(true)}>
+            Log In
+          </button>
+        )}
       </div>
+
+      {/* Auth Modal Popup */}
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
 
       {/* DASHBOARD HERO: Heatmap appears here when no section is opened */}
       {activeSection === null && (

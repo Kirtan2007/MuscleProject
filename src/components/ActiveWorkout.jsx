@@ -45,15 +45,13 @@ export default function ActiveWorkout({ activeWorkout, onCancelWorkout, onFinish
 
   // In-session rep or weight edits
   const handleUpdateSetField = (exerciseIndex, setIndex, field, value) => {
-    const numericValue = value === '' ? 0 : Math.max(0, parseInt(value, 10) || 0);
-
     setSession((prev) => {
       const updatedExercises = prev.exercises.map((ex, eIdx) => {
         if (eIdx !== exerciseIndex) return ex;
 
         const updatedSets = ex.sets.map((set, sIdx) => {
           if (sIdx !== setIndex) return set;
-          return { ...set, [field]: numericValue };
+          return { ...set, [field]: value };
         });
 
         return { ...ex, sets: updatedSets };
@@ -117,23 +115,37 @@ export default function ActiveWorkout({ activeWorkout, onCancelWorkout, onFinish
 
                   <input
                     type="number"
-                    inputMode="numeric"
-                    className="active-set-input"
-                    placeholder={set.targetReps ? `≥${set.targetReps}` : '0'}
-                    value={set.reps}
-                    disabled={set.completed}
-                    onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
-                    onChange={(e) => handleUpdateSetField(exIndex, setIndex, 'reps', e.target.value)}
+                    min="0"
+                    value={set.reps === 0 ? '' : set.reps}
+                    placeholder="0"
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === '') {
+                        handleUpdateSetField(exIndex, setIndex, 'reps', 0);
+                      } else {
+                        const val = parseInt(raw, 10);
+                        handleUpdateSetField(exIndex, setIndex, 'reps', isNaN(val) ? 0 : val);
+                      }
+                    }}
                   />
 
                   <input
                     type="number"
-                    inputMode="numeric"
-                    className="active-set-input"
-                    value={set.weight}
-                    disabled={set.completed}
-                    onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
-                    onChange={(e) => handleUpdateSetField(exIndex, setIndex, 'weight', e.target.value)}
+                    min="0"
+                    step="any"
+                    value={set.weight === 0 ? '' : set.weight}
+                    placeholder="0"
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === '') {
+                        handleUpdateSetField(exIndex, setIndex, 'weight', 0);
+                      } else {
+                        const val = parseFloat(raw);
+                        handleUpdateSetField(exIndex, setIndex, 'weight', isNaN(val) ? 0 : val);
+                      }
+                    }}
                   />
 
                   <button
