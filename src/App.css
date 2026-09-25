@@ -1446,3 +1446,726 @@ h2 {
     transform: translateY(0) scale(1);
   }
 }
+
+/* =========================================
+   V5.1: LEETCODE-STYLE ACTIVITY HEATMAP
+   ========================================= */
+
+.analytics-section {
+  width: 100%;
+  max-width: 1180px; /* Widened so all 12 months fit without scrolling */
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  box-sizing: border-box;
+}
+
+.analytics-header h2 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: #f5f5f7;
+}
+
+.analytics-subtitle {
+  margin: 0.3rem 0 1.5rem;
+  color: #86868b;
+  font-size: 0.95rem;
+}
+
+.activity-heatmap-card {
+  background: #141416;
+  border: 1px solid #232328;
+  border-radius: 12px;
+  padding: 1.5rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.heatmap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+  border-bottom: 1px solid #202026;
+  padding-bottom: 0.85rem;
+}
+
+.heatmap-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.heatmap-total-count {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #f5f5f7;
+}
+
+.heatmap-total-subtext {
+  color: #8e8e93;
+  font-size: 0.95rem;
+}
+
+.heatmap-stats {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.heatmap-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.heatmap-stat-item .stat-label {
+  font-size: 0.72rem;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.heatmap-stat-item .stat-number {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #39d353;
+}
+
+/* Scroll area: auto-centers on desktop, no scrollbar when screen is wide enough */
+.heatmap-scroll-area {
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: none; /* Hide scrollbar on desktop */
+}
+.heatmap-scroll-area::-webkit-scrollbar {
+  display: none;
+}
+
+.heatmap-grid-wrapper {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between; /* Evenly spreads the months across the card */
+  gap: 12px;
+  width: 100%;
+}
+
+/* Day labels on left */
+.heatmap-day-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 28px;
+  height: 102px; /* Exactly matches 7 cells * 12px + 6 gaps * 3px */
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.heatmap-day-label {
+  font-size: 0.68rem;
+  color: #636366;
+  line-height: 12px;
+  height: 12px;
+  user-select: none;
+}
+
+/* Container for all 12 month islands */
+.heatmap-months-container {
+  display: flex;
+  justify-content: space-between;
+  flex: 1;
+  gap: 10px;
+}
+
+/* Individual month island */
+.heatmap-month-island {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.heatmap-month-weeks {
+  display: flex;
+  gap: 3px;
+}
+
+.heatmap-week-column {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.heatmap-month-caption {
+  font-size: 0.75rem;
+  color: #8e8e93;
+  user-select: none;
+}
+
+/* EXACT UNIFORM SQUARE CELLS */
+.heatmap-cell {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border-radius: 2.5px;
+  box-sizing: border-box;
+  transition: transform 0.1s ease, border-color 0.1s ease;
+}
+
+/* Empty slots: keep them strictly invisible but maintaining exact layout geometry */
+.heatmap-cell.cell-empty {
+  background-color: transparent;
+  pointer-events: none;
+}
+
+/* Tier coloring */
+.heatmap-cell.tier-0 {
+  background-color: #1f1f26;
+}
+
+.heatmap-cell.tier-1 {
+  background-color: #0e4429;
+}
+
+.heatmap-cell.tier-2 {
+  background-color: #006d32;
+}
+
+.heatmap-cell.tier-3 {
+  background-color: #39d353;
+  box-shadow: 0 0 5px rgba(57, 211, 83, 0.45);
+}
+
+.heatmap-cell.cell-future {
+  opacity: 0.12;
+}
+
+.heatmap-cell:hover:not(.cell-future):not(.cell-empty),
+.heatmap-cell.cell-hovered {
+  transform: scale(1.35);
+  border: 1px solid #ffffff;
+  z-index: 10;
+  cursor: pointer;
+}
+
+/* Footer readout & legend */
+.heatmap-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #202026;
+  font-size: 0.82rem;
+}
+
+.heatmap-hover-info {
+  color: #f5f5f7;
+  min-height: 18px;
+}
+
+.heatmap-hover-placeholder {
+  color: #636366;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.heatmap-legend .legend-label {
+  color: #8e8e93;
+  font-size: 0.72rem;
+  padding: 0 4px;
+}
+
+/* =========================================
+   V5.2: PROGRESSION GRAPH STYLES
+   ========================================= */
+
+.analytics-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.progression-graph-card {
+  background: #141416;
+  border: 1px solid #232328;
+  border-radius: 12px;
+  padding: 1.5rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  box-sizing: border-box;
+}
+
+/* Control Header */
+.graph-controls-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.graph-muscle-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.graph-pill {
+  background: #1f1f26;
+  border: 1px solid #2b2b36;
+  color: #8e8e93;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.graph-pill:hover {
+  background: #2b2b36;
+  color: #f5f5f7;
+}
+
+.graph-pill.active {
+  background: #39d353;
+  color: #000000;
+  font-weight: 600;
+  border-color: #39d353;
+}
+
+.graph-meta-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.graph-segmented-control {
+  display: flex;
+  background: #1f1f26;
+  border-radius: 8px;
+  padding: 2px;
+  border: 1px solid #2b2b36;
+}
+
+.graph-segmented-control button {
+  background: transparent;
+  border: none;
+  color: #8e8e93;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.graph-segmented-control button.active {
+  background: #2c2c36;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* KPI Row */
+.graph-kpi-row {
+  display: flex;
+  gap: 2rem;
+  border-bottom: 1px solid #202026;
+  padding-bottom: 0.85rem;
+}
+
+.graph-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.graph-kpi .kpi-label {
+  font-size: 0.72rem;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.graph-kpi .kpi-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f5f5f7;
+}
+
+.graph-kpi .text-accent {
+  color: #39d353;
+}
+
+/* SVG Container */
+.graph-svg-container {
+  width: 100%;
+  height: 260px;
+  position: relative;
+}
+
+.progression-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.graph-point-circle {
+  cursor: pointer;
+  transition: r 0.15s ease;
+}
+
+.graph-empty-state {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #636366;
+  font-size: 0.9rem;
+}
+
+/* Tooltip */
+.graph-tooltip-box {
+  background: #1a1a20;
+  border: 1px solid #282832;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.tooltip-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tooltip-date {
+  color: #8e8e93;
+}
+
+.tooltip-stat {
+  color: #39d353;
+}
+
+.tooltip-ex-list {
+  color: #c7c7cc;
+  font-size: 0.78rem;
+}
+
+.tooltip-placeholder {
+  color: #636366;
+}
+
+/* Exercise Drill-Down Cards */
+.graph-breakdown-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #202026;
+}
+
+.breakdown-title {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #f5f5f7;
+  font-weight: 600;
+}
+
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.breakdown-card {
+  background: #1a1a20;
+  border: 1px solid #262630;
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.breakdown-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.breakdown-ex-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f5f5f7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.breakdown-muscle-tag {
+  font-size: 0.65rem;
+  text-transform: capitalize;
+  background: #272732;
+  color: #8e8e93;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.breakdown-metrics {
+  display: flex;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: #8e8e93;
+}
+
+.breakdown-metrics strong {
+  color: #e5e5ea;
+}
+
+/* Dropdown wrapper & pill adjustments */
+.pill-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.graph-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dropdown-arrow-icon {
+  font-size: 0.65rem;
+  line-height: 1;
+  margin-left: 2px;
+}
+
+/* Floating Dropdown Menu */
+.exercise-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: #18181f;
+  border: 1px solid #2d2d38;
+  border-radius: 8px;
+  padding: 6px;
+  min-width: 170px;
+  max-width: 240px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  animation: dropdownFadeIn 0.15s ease-out;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-title {
+  font-size: 0.7rem;
+  color: #636366;
+  padding: 4px 8px 2px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dropdown-item {
+  background: transparent;
+  border: none;
+  color: #d1d1d6;
+  font-size: 0.82rem;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-item:hover {
+  background: #252530;
+  color: #ffffff;
+}
+
+.dropdown-item.active-item {
+  background: #2a3d2e;
+  color: #39d353;
+  font-weight: 600;
+}
+
+.dropdown-empty-msg {
+  font-size: 0.75rem;
+  color: #8e8e93;
+  padding: 6px 8px;
+  font-style: italic;
+}
+
+/* =========================================
+   V5.3: MUSCLE BALANCE & DISTRIBUTION
+   ========================================= */
+
+.muscle-balance-card {
+  background: #141416;
+  border: 1px solid #232328;
+  border-radius: 12px;
+  padding: 1.5rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-sizing: border-box;
+}
+
+.balance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+  border-bottom: 1px solid #202026;
+  padding-bottom: 0.85rem;
+}
+
+.balance-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.balance-heading {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #f5f5f7;
+}
+
+.balance-subheading {
+  font-size: 0.82rem;
+  color: #8e8e93;
+}
+
+.balance-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.balance-empty-state {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: #636366;
+  font-size: 0.9rem;
+}
+
+/* Stacked Multi-Color Segment Bar */
+.balance-stacked-bar {
+  display: flex;
+  height: 14px;
+  width: 100%;
+  border-radius: 7px;
+  overflow: hidden;
+  background-color: #1f1f26;
+  border: 1px solid #282832;
+  box-sizing: border-box;
+}
+
+.stacked-bar-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+/* Individual Row Breakdown */
+.balance-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-top: 0.25rem;
+}
+
+.balance-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.balance-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.balance-row-name-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.balance-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.balance-muscle-name {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #f5f5f7;
+}
+
+.balance-row-numbers {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.balance-score-text {
+  font-size: 0.82rem;
+  color: #8e8e93;
+}
+
+.balance-pct-badge {
+  font-size: 0.88rem;
+  font-weight: 700;
+  min-width: 38px;
+  text-align: right;
+}
+
+/* Row Progress Track */
+.balance-row-bar-track {
+  width: 100%;
+  height: 6px;
+  background-color: #1c1c24;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.balance-row-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}

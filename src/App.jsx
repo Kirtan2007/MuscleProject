@@ -7,6 +7,7 @@ import WorkoutHistory from './components/WorkoutHistory'
 import MuscleHeatmap from './components/MuscleHeatmap'
 import { useAuth } from './context/AuthContext'
 import { AuthModal } from './components/AuthModal'
+import Analytics from './components/Analytics'
 import { 
   fetchUserRoutines, 
   saveUserRoutineDay, 
@@ -503,6 +504,13 @@ useEffect(() => {
           History
         </button>
 
+        <button
+          className={activeSection === 'analytics' ? 'active-section' : ''}
+          onClick={() => handleNavClick('analytics')}
+        >
+          Analytics
+        </button>
+
         {/* Auth Control */}
         {user ? (
           <button onClick={handleSignOut} title={user.email}>
@@ -634,6 +642,11 @@ useEffect(() => {
           onDeleteSession={handleDeleteHistorySession}
         />
       )}
+
+      {activeSection === 'analytics' && (
+        <Analytics history={workoutHistory} />
+      )}
+
     </div>
   )
 }
