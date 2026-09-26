@@ -30,19 +30,39 @@ const POSTERIOR_BEACONS = [
   { key: 'calf-r', id: 'calves', label: 'Calf', pos: [0.108, -0.410, -0.115] },
 ]
 
-function SensorNode({ beacon, status, onHover, isHovered }) {
+function SensorNode({ beacon, status, onHover, isHovered, onSelect }) {
   const color = status?.color || '#22c55e'
   const ringRef = useRef()
+  const rippleRef = useRef()
+  const [isRippling, setIsRippling] = useState(false)
 
   useFrame((_, delta) => {
+    // Normal ambient rotation
     if (ringRef.current) {
       ringRef.current.rotation.z += delta * (isHovered ? 2.5 : 0.8)
     }
+
+    // Expanding sonar ripple animation on click
+    if (isRippling && rippleRef.current) {
+      rippleRef.current.scale.x += delta * 7.5
+      rippleRef.current.scale.y += delta * 7.5
+      if (rippleRef.current.material.opacity > 0) {
+        rippleRef.current.material.opacity = Math.max(0, rippleRef.current.material.opacity - delta * 4.5)
+      }
+    }
   })
+
+  const triggerClick = () => {
+    setIsRippling(true)
+    setTimeout(() => {
+      if (onSelect) onSelect(beacon.id)
+    }, 140)
+  }
 
   return (
     <group position={beacon.pos}>
       <mesh
+        cursor="pointer"
         onPointerOver={(e) => {
           e.stopPropagation()
           onHover(beacon.key)
@@ -50,6 +70,10 @@ function SensorNode({ beacon, status, onHover, isHovered }) {
         onPointerOut={(e) => {
           e.stopPropagation()
           onHover(null)
+        }}
+        onClick={(e) => {
+          e.stopPropagation()
+          triggerClick()
         }}
       >
         <sphereGeometry args={[0.009, 16, 16]} />
@@ -61,6 +85,7 @@ function SensorNode({ beacon, status, onHover, isHovered }) {
         />
       </mesh>
 
+      {/* Orbiting Ambient Ring */}
       <mesh ref={ringRef}>
         <ringGeometry args={[0.014, 0.019, 24]} />
         <meshBasicMaterial
@@ -71,10 +96,34 @@ function SensorNode({ beacon, status, onHover, isHovered }) {
         />
       </mesh>
 
-      {/* Renders solely on the exact hovered node */}
+      {/* Sonar Pulse Ring (Triggers only when clicked) */}
+      {isRippling && (
+        <mesh ref={rippleRef}>
+          <ringGeometry args={[0.018, 0.024, 24]} />
+          <meshBasicMaterial
+            color="#38bdf8"
+            transparent
+            opacity={0.9}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
+
+      {/* Tooltip Card */}
       {isHovered && (
-        <Html distanceFactor={2.0} position={[0.05, 0.02, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="hover-muscle-card" style={{ borderColor: color }}>
+        <Html distanceFactor={2.0} position={[0.05, 0.02, 0]} style={{ pointerEvents: 'auto' }}>
+          <div
+            className="hover-muscle-card"
+            style={{
+              borderColor: color,
+              cursor: 'pointer',
+              userSelect: 'none'
+            }}
+            onClick={(e) => {
+              e.stopPropagation()
+              triggerClick()
+            }}
+          >
             <div className="hover-card-header">
               <span className="hover-card-title">{beacon.label.toUpperCase()}</span>
               <span className="hover-card-badge" style={{ color: color }}>
@@ -84,6 +133,9 @@ function SensorNode({ beacon, status, onHover, isHovered }) {
             <div className="hover-card-body">
               <span>{status?.hours != null ? `Trained ${status.hours}h ago` : '100% Ready (No Fatigue)'}</span>
             </div>
+            <div style={{ marginTop: '6px', fontSize: '10px', color: '#10b981', fontWeight: 600 }}>
+              View Analytics →
+            </div>
           </div>
         </Html>
       )}
@@ -91,7 +143,7 @@ function SensorNode({ beacon, status, onHover, isHovered }) {
   )
 }
 
-export default function ModelMannequin({ recoveryStatus, hoveredMuscle, onHoverMuscle }) {
+export default function ModelMannequin({ recoveryStatus, hoveredMuscle, onHoverMuscle, onSelectMuscle }) {
   const { scene } = useGLTF('/models/mannequin.glb')
   const groupRef = useRef()
   const [isFrontFacing, setIsFrontFacing] = useState(true)
@@ -132,6 +184,7 @@ export default function ModelMannequin({ recoveryStatus, hoveredMuscle, onHoverM
           status={recoveryStatus[b.id]}
           isHovered={hoveredMuscle === b.key}
           onHover={onHoverMuscle}
+          onSelect={onSelectMuscle}
         />
       ))}
     </group>

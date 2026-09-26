@@ -8,6 +8,7 @@ import MuscleHeatmap from './components/MuscleHeatmap'
 import { useAuth } from './context/AuthContext'
 import { AuthModal } from './components/AuthModal'
 import Analytics from './components/Analytics'
+import { mapBeaconToGraphMuscle } from './data/muscleMapping'
 import { 
   fetchUserRoutines, 
   saveUserRoutineDay, 
@@ -26,7 +27,21 @@ function App() {
   const { user, signOut } = useAuth()
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const [targetAnalyticsMuscle, setTargetAnalyticsMuscle] = useState('All')
+  const [fromModelDrilldown, setFromModelDrilldown] = useState(false)
+  const [selectedSubGroup, setSelectedSubGroup] = useState('All')
 
+  const handleBackToModel = () => {
+  setActiveSection(null)
+  setFromModelDrilldown(false)
+  }
+
+  const handleMuscleSelectFromModel = (beaconId) => {
+  const graphMuscle = mapBeaconToGraphMuscle(beaconId)
+  setTargetAnalyticsMuscle(graphMuscle)
+  setFromModelDrilldown(true) // Marks this visit as initiated by the 3D model
+  setActiveSection('analytics')
+  }
 
   const handleSignOut = async () => {
   await signOut()
@@ -41,8 +56,9 @@ function App() {
   }
 
   const handleNavClick = (section) => {
-    setActiveSection((prev) => (prev === section ? null : section))
-    setRoutineAddMode(false)
+  setActiveSection((prev) => (prev === section ? null : section))
+  setRoutineAddMode(false)
+  setFromModelDrilldown(false) // Direct click resets the drilldown origin
   }
 
   // Load workout history from localStorage as default
@@ -478,7 +494,17 @@ useEffect(() => {
 
   return (
     <div className="app">
-      <h1 className="title">MuscleProject</h1>
+      <h1 
+        className="title" 
+        onClick={() => {
+          setActiveSection(null)
+          setRoutineAddMode(false)
+        }}
+        style={{ cursor: 'pointer', userSelect: 'none' }}
+        title="Back to Dashboard"
+      >
+        MuscleProject
+      </h1>
       <p className="subtitle">Your personal workout tracker</p>
 
       {/* Top Navigation */}
@@ -529,7 +555,10 @@ useEffect(() => {
       {/* DASHBOARD HERO: Heatmap appears here when no section is opened */}
       {activeSection === null && (
         <section className="dashboard-section">
-          <MuscleHeatmap history={workoutHistory} />
+          <MuscleHeatmap 
+            history={workoutHistory} 
+            onSelectMuscle={handleMuscleSelectFromModel} 
+          />
         </section>
       )}
 
@@ -562,10 +591,13 @@ useEffect(() => {
           <MuscleFilter
             selectedMuscle={selectedMuscle}
             setSelectedMuscle={setSelectedMuscle}
+            selectedSubGroup={selectedSubGroup}
+            setSelectedSubGroup={setSelectedSubGroup}
           />
 
           <ExerciseList
             selectedMuscle={selectedMuscle}
+            selectedSubGroup={selectedSubGroup}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             addExerciseToDay={addExerciseToDay}
@@ -643,8 +675,14 @@ useEffect(() => {
         />
       )}
 
+      {/* ANALYTICS SECTION */}
       {activeSection === 'analytics' && (
-        <Analytics history={workoutHistory} />
+        <Analytics 
+          history={workoutHistory} 
+          targetMuscle={targetAnalyticsMuscle}
+          showBackToModel={fromModelDrilldown}
+          onBackToModel={handleBackToModel}
+        />
       )}
 
     </div>

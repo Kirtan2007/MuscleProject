@@ -9,7 +9,7 @@ const RECOVERY_COLORS = {
   fresh: '#22c55e',
 }
 
-export default function MuscleHeatmap({ history = [] }) {
+export default function MuscleHeatmap({ history, onSelectMuscle }) {
   const [hoveredMuscle, setHoveredMuscle] = useState(null)
 
   const recoveryStatus = useMemo(() => {
@@ -108,6 +108,7 @@ export default function MuscleHeatmap({ history = [] }) {
               recoveryStatus={recoveryStatus}
               hoveredMuscle={hoveredMuscle}
               onHoverMuscle={setHoveredMuscle}
+              onSelectMuscle={onSelectMuscle}
             />
           </Suspense>
 

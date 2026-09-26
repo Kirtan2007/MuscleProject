@@ -45,8 +45,8 @@ function formatDisplayDate(dateKey) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-export default function ProgressionGraph({ history = [] }) {
-  const [selectedMuscle, setSelectedMuscle] = useState('All')
+export default function ProgressionGraph({history, targetMuscle = 'All'}) {
+  const [selectedMuscle, setSelectedMuscle] = useState(targetMuscle)
   const [selectedExercise, setSelectedExercise] = useState('ALL_EXERCISES')
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [timeRange, setTimeRange] = useState('7D')
@@ -54,6 +54,13 @@ export default function ProgressionGraph({ history = [] }) {
   const [hoveredPoint, setHoveredPoint] = useState(null)
 
   const dropdownRef = useRef(null)
+
+  // Listen for updates from mannequin clicks
+  useEffect(() => {
+    if (targetMuscle) {
+      setSelectedMuscle(targetMuscle)
+    }
+  }, [targetMuscle])
 
   // Close dropdown on outside click
   useEffect(() => {
