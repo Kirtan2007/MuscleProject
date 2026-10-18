@@ -1,3 +1,5 @@
+import { EXERCISES } from '../data/exercises'
+
 function RoutineCard({
   exercise,
   selectedDay,
@@ -15,6 +17,16 @@ function RoutineCard({
     { reps: 0, weight: 0 }
   ]
 
+  // Look up catalog entry by id or normalized name
+  const catalogExercise = EXERCISES.find(
+    (e) =>
+      e.id === exercise.id ||
+      e.name.toLowerCase() === exercise.name?.toLowerCase() ||
+      (exercise.name && e.name.toLowerCase().includes(exercise.name.toLowerCase()))
+  )
+
+  const exerciseImage = catalogExercise?.image || exercise.image
+
   const canAddSet = sets.length < 4
   const canRemoveSet = sets.length > 1
 
@@ -31,14 +43,12 @@ function RoutineCard({
   }
 
   const handleFocus = (index, field, value) => {
-    // Clears 0 on focus for both reps and weight
     if (value === 0 || value === '0') {
       updateExerciseSet(selectedDay, exercise.id, index, field, '')
     }
   }
 
   const handleBlur = (index, field, value) => {
-    // If left blank when clicking away, safely restore 0
     if (value === '' || isNaN(value)) {
       updateExerciseSet(selectedDay, exercise.id, index, field, 0)
     }
@@ -46,7 +56,6 @@ function RoutineCard({
 
   return (
     <div className="routine-exercise">
-
       <div className="routine-card-header">
         <h3>{exercise.name}</h3>
         <button
@@ -60,11 +69,40 @@ function RoutineCard({
 
       <div className="routine-card-body">
         <div className="routine-left">
-          <img
-            className="routine-exercise-image"
-            src={exercise.image}
-            alt={exercise.name}
-          />
+          {exerciseImage ? (
+            <img
+              className="routine-exercise-image"
+              src={exerciseImage}
+              alt={exercise.name}
+              onError={(e) => {
+                e.target.style.display = 'none'
+                if (e.target.nextSibling) {
+                  e.target.nextSibling.style.display = 'flex'
+                }
+              }}
+            />
+          ) : null}
+
+          {/* Clean equipment fallback if image is missing */}
+          <div
+            className="routine-image-placeholder"
+            style={{
+              display: exerciseImage ? 'none' : 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '80px',
+              height: '80px',
+              background: '#f1f5f9',
+              borderRadius: '8px',
+              color: '#64748b',
+              fontSize: '11px',
+              fontWeight: 700,
+              textAlign: 'center',
+              padding: '4px'
+            }}
+          >
+            {catalogExercise?.equipment || 'Exercise'}
+          </div>
         </div>
 
         <div className="routine-middle">
@@ -137,7 +175,6 @@ function RoutineCard({
           )}
         </div>
       </div>
-
     </div>
   )
 }

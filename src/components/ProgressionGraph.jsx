@@ -9,25 +9,24 @@ const TIME_RANGES = [
   { label: 'All', days: null }
 ]
 
-const MUSCLE_TAXONOMY = {
-  all: [],
-  chest: ['chest', 'pecs', 'upper chest', 'lower chest'],
-  back: ['back', 'lats', 'traps', 'rhomboids', 'upper back', 'lower back'],
-  legs: ['legs', 'quads', 'quadriceps', 'hamstrings', 'glutes', 'calves'],
-  shoulders: ['shoulders', 'delts', 'rear delts', 'front delts', 'lateral delts'],
-  arms: ['arms', 'biceps', 'triceps', 'forearms'],
-  core: ['core', 'abs', 'abdominals', 'obliques']
-}
-
-function matchesMuscleGroup(exerciseMuscle, selectedGroup) {
+function matchesMuscleGroup(exercise, selectedGroup) {
   if (selectedGroup === 'all') return true
-  if (!exerciseMuscle) return false
+  if (!exercise) return false
 
-  const raw = exerciseMuscle.toLowerCase().trim()
-  if (raw === selectedGroup) return true
+  const target = selectedGroup.toLowerCase().trim()
+  const rawMuscle = (exercise.muscle || exercise.category || '').toLowerCase().trim()
+  const rawSubGroup = (exercise.subGroup || '').toLowerCase().trim()
 
-  const aliases = MUSCLE_TAXONOMY[selectedGroup] || []
-  return aliases.some((alias) => raw.includes(alias) || alias.includes(raw))
+  // Exact primary category match
+  if (rawMuscle === target) return true
+
+  // Sub-group category containment
+  if (target === 'arms' && ['biceps', 'triceps', 'forearms'].includes(rawSubGroup)) return true
+  if (target === 'legs' && ['quads', 'hamstrings', 'glutes', 'calves'].includes(rawSubGroup)) return true
+  if (target === 'back' && ['lats', 'mid back', 'upper back'].includes(rawSubGroup)) return true
+  if (target === 'core' && ['abs'].includes(rawSubGroup)) return true
+
+  return false
 }
 
 function formatDateKey(date) {
@@ -45,12 +44,12 @@ function formatDisplayDate(dateKey) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-export default function ProgressionGraph({history, targetMuscle = 'All'}) {
+export default function ProgressionGraph({ history = [], workout = {}, targetMuscle = 'All' }) {
   const [selectedMuscle, setSelectedMuscle] = useState(targetMuscle)
   const [selectedExercise, setSelectedExercise] = useState('ALL_EXERCISES')
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [timeRange, setTimeRange] = useState('7D')
-  const [metric, setMetric] = useState('sets') // 'sets' | 'volume'
+  const [metric, setMetric] = useState('sets')
   const [hoveredPoint, setHoveredPoint] = useState(null)
 
   const dropdownRef = useRef(null)
@@ -59,6 +58,7 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
   useEffect(() => {
     if (targetMuscle) {
       setSelectedMuscle(targetMuscle)
+      setSelectedExercise('ALL_EXERCISES')
     }
   }, [targetMuscle])
 
@@ -73,24 +73,39 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // 1. Collect all exercises logged for the selected muscle group
+  // 1. Collect ONLY exercises present in the user's active routine or logged history
   const availableExercisesForMuscle = useMemo(() => {
     if (selectedMuscle === 'All') return []
 
     const targetGroup = selectedMuscle.toLowerCase()
     const setOfNames = new Set()
 
-    history.forEach((session) => {
-      session.exercises?.forEach((ex) => {
-        const exMuscle = ex.muscle || ex.target || ''
-        if (matchesMuscleGroup(exMuscle, targetGroup) && ex.name) {
-          setOfNames.add(ex.name)
+    // From active 7-day routine
+    if (workout && typeof workout === 'object') {
+      Object.values(workout).forEach((dayExercises) => {
+        if (Array.isArray(dayExercises)) {
+          dayExercises.forEach((ex) => {
+            if (matchesMuscleGroup(ex, targetGroup) && ex.name) {
+              setOfNames.add(ex.name)
+            }
+          })
         }
       })
-    })
+    }
+
+    // From user's logged workout history
+    if (Array.isArray(history)) {
+      history.forEach((session) => {
+        session.exercises?.forEach((ex) => {
+          if (matchesMuscleGroup(ex, targetGroup) && ex.name) {
+            setOfNames.add(ex.name)
+          }
+        })
+      })
+    }
 
     return Array.from(setOfNames).sort()
-  }, [history, selectedMuscle])
+  }, [workout, history, selectedMuscle])
 
   // 2. Filter sessions by active date window
   const filteredSessions = useMemo(() => {
@@ -113,7 +128,7 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
       .sort((a, b) => new Date(a.date || a.timestamp || a.completedAt) - new Date(b.date || b.timestamp || b.completedAt))
   }, [history, timeRange])
 
-  // 3. Aggregate points filtered by both muscle & selected exercise
+  // 3. Aggregate points filtered by muscle & selected exercise with complete timeline continuity
   const { chartData, totalMetricSum, maxSingleDay } = useMemo(() => {
     const dateMap = new Map()
     let sum = 0
@@ -132,10 +147,7 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
       const matchedExercises = []
 
       session.exercises?.forEach((ex) => {
-        const exMuscle = ex.muscle || ex.target || ''
-        const muscleMatches = matchesMuscleGroup(exMuscle, targetGroup)
-
-        // Exercise-level drilldown condition
+        const muscleMatches = matchesMuscleGroup(ex, targetGroup)
         const exerciseMatches =
           selectedExercise === 'ALL_EXERCISES' ||
           ex.name?.toLowerCase() === selectedExercise.toLowerCase()
@@ -186,43 +198,47 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
       }
     })
 
-    // Interpolate 7D / 1M days with zeros for timeline continuity
+    // Timeline continuity calculation
     const rangeConfig = TIME_RANGES.find((r) => r.label === timeRange)
     const points = []
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
-    if (rangeConfig && rangeConfig.days !== null && rangeConfig.days <= 30) {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const startDate = new Date(today)
-      startDate.setDate(today.getDate() - rangeConfig.days + 1)
+    let totalDays = 30
+    let startDate = new Date(today)
 
-      for (let i = 0; i < rangeConfig.days; i++) {
-        const curr = new Date(startDate)
-        curr.setDate(startDate.getDate() + i)
-        const key = formatDateKey(curr)
-        const entry = dateMap.get(key) || { dateKey: key, sets: 0, volume: 0, exercises: [] }
-
-        const val = metric === 'sets' ? entry.sets : entry.volume
-        sum += val
-        if (val > maxDay) maxDay = val
-
-        points.push({
-          ...entry,
-          val,
-          displayDate: formatDisplayDate(key)
-        })
-      }
+    if (rangeConfig && rangeConfig.days !== null) {
+      totalDays = rangeConfig.days
+      startDate.setDate(today.getDate() - totalDays + 1)
     } else {
-      dateMap.forEach((entry, key) => {
-        const val = metric === 'sets' ? entry.sets : entry.volume
-        sum += val
-        if (val > maxDay) maxDay = val
+      // "All": starts from the earliest session date recorded in history up to today
+      const allDates = Array.from(dateMap.keys()).sort()
+      if (allDates.length > 0) {
+        const [earliestY, earliestM, earliestD] = allDates[0].split('-').map(Number)
+        startDate = new Date(earliestY, earliestM - 1, earliestD)
+        startDate.setHours(0, 0, 0, 0)
+        const diffMs = today.getTime() - startDate.getTime()
+        totalDays = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1)
+      } else {
+        totalDays = 7
+        startDate.setDate(today.getDate() - 6)
+      }
+    }
 
-        points.push({
-          ...entry,
-          val,
-          displayDate: formatDisplayDate(key)
-        })
+    for (let i = 0; i < totalDays; i++) {
+      const curr = new Date(startDate)
+      curr.setDate(startDate.getDate() + i)
+      const key = formatDateKey(curr)
+      const entry = dateMap.get(key) || { dateKey: key, sets: 0, volume: 0, exercises: [] }
+
+      const val = metric === 'sets' ? entry.sets : entry.volume
+      sum += val
+      if (val > maxDay) maxDay = val
+
+      points.push({
+        ...entry,
+        val,
+        displayDate: formatDisplayDate(key)
       })
     }
 
@@ -233,7 +249,7 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
     }
   }, [filteredSessions, selectedMuscle, selectedExercise, timeRange, metric])
 
-  // 4. SVG Dimensions
+  // 4. SVG Layout & Coordinates
   const SVG_WIDTH = 800
   const SVG_HEIGHT = 260
   const PADDING = { top: 25, right: 30, bottom: 35, left: 45 }
@@ -343,7 +359,7 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
                       </button>
                     ))}
                     {availableExercisesForMuscle.length === 0 && (
-                      <div className="dropdown-empty-msg">No exercises logged yet</div>
+                      <div className="dropdown-empty-msg">No exercises in routine or history</div>
                     )}
                   </div>
                 )}
@@ -352,7 +368,7 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
           })}
         </div>
 
-        {/* Right controls */}
+        {/* Metric and Time Range Controls */}
         <div className="graph-meta-controls">
           <div className="graph-segmented-control">
             <button
@@ -411,7 +427,7 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
         </div>
       </div>
 
-      {/* SVG Chart */}
+      {/* SVG Progression Area & Line */}
       <div className="graph-svg-container">
         {pointsWithCoords.length === 0 ? (
           <div className="graph-empty-state">
@@ -433,7 +449,7 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
               </linearGradient>
             </defs>
 
-            {/* Gridlines */}
+            {/* Horizontal Gridlines and Y-Axis Labels */}
             {yTicks.map((tickVal, idx) => {
               const yPos = PADDING.top + innerHeight - (tickVal / yMax) * innerHeight
               return (
@@ -474,7 +490,7 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
               />
             )}
 
-            {/* Points */}
+            {/* Coordinate Points with hover targets */}
             {pointsWithCoords.map((pt, idx) => {
               const isNonZero = pt.val > 0
               const isHovered = hoveredPoint?.dateKey === pt.dateKey
@@ -495,13 +511,14 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
               )
             })}
 
-            {/* X-Axis Dates */}
+            {/* X-Axis Date Labels with automatic sampling based on range length */}
             {pointsWithCoords
               .filter((_, idx) => {
                 const total = pointsWithCoords.length
                 if (total <= 7) return true
                 if (total <= 31) return idx % Math.ceil(total / 6) === 0
-                return idx % Math.ceil(total / 8) === 0
+                if (total <= 95) return idx % Math.ceil(total / 6) === 0
+                return idx % Math.ceil(total / 7) === 0
               })
               .map((pt, idx) => (
                 <text
@@ -519,7 +536,7 @@ export default function ProgressionGraph({history, targetMuscle = 'All'}) {
         )}
       </div>
 
-      {/* Tooltip Readout */}
+      {/* Tooltip Readout Card */}
       <div className="graph-tooltip-box">
         {hoveredPoint ? (
           <div className="tooltip-details">

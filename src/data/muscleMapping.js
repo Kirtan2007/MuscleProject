@@ -9,8 +9,9 @@ export const BEACON_TO_GRAPH_KEY = {
   quads: 'Legs',
   hamstrings: 'Legs',
   calves: 'Legs',
+  glutes: 'Legs',     
   back: 'Back',
-  lower_back: 'Back'
+  lats: 'Back',        
 }
 
 export function mapBeaconToGraphMuscle(beaconId) {

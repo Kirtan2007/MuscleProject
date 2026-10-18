@@ -4,8 +4,8 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
 const ANTERIOR_BEACONS = [
-  { key: 'chest-l', id: 'chest', label: 'Chest', pos: [-0.075, 0.435, 0.102] },
-  { key: 'chest-r', id: 'chest', label: 'Chest', pos: [0.075, 0.435, 0.102] },
+  { key: 'chest-l', id: 'chest', label: 'Chest', pos: [-0.075, 0.435, 0.112] },
+  { key: 'chest-r', id: 'chest', label: 'Chest', pos: [0.075, 0.435, 0.112] },
   { key: 'delt-l', id: 'shoulders', label: 'Shoulder', pos: [-0.170, 0.444, 0.065] },
   { key: 'delt-r', id: 'shoulders', label: 'Shoulder', pos: [0.170, 0.444, 0.065] },
   { key: 'abs', id: 'abs', label: 'Abs (Core)', pos: [0, 0.220, 0.118] },
@@ -18,16 +18,19 @@ const ANTERIOR_BEACONS = [
 ]
 
 const POSTERIOR_BEACONS = [
-  { key: 'back-upper', id: 'back', label: 'Upper Back', pos: [0, 0.460, -0.105] },
-  { key: 'back-lower', id: 'lower_back', label: 'Lower Back', pos: [0, 0.200, -0.090] },
-  { key: 'rdelt-l', id: 'shoulders', label: 'Rear Delt', pos: [-0.170, 0.444, -0.065] },
-  { key: 'rdelt-r', id: 'shoulders', label: 'Rear Delt', pos: [0.170, 0.444, -0.065] },
-  { key: 'tricep-l', id: 'triceps', label: 'Tricep', pos: [-0.224, 0.325, -0.055] },
-  { key: 'tricep-r', id: 'triceps', label: 'Tricep', pos: [0.224, 0.325, -0.055] },
-  { key: 'ham-l', id: 'hamstrings', label: 'Hamstring', pos: [-0.102, -0.120, -0.088] },
-  { key: 'ham-r', id: 'hamstrings', label: 'Hamstring', pos: [0.102, -0.120, -0.088] },
-  { key: 'calf-l', id: 'calves', label: 'Calf', pos: [-0.108, -0.410, -0.115] },
-  { key: 'calf-r', id: 'calves', label: 'Calf', pos: [0.108, -0.410, -0.115] },
+  { key: 'back-upper', id: 'back', label: 'Upper Back', pos: [0, 0.460, -0.130] },
+  { key: 'lat-l', id: 'lats', label: 'Lat', pos: [-0.095, 0.320, -0.102] },
+  { key: 'lat-r', id: 'lats', label: 'Lat', pos: [0.095, 0.320, -0.102] },
+  { key: 'rdelt-l', id: 'shoulders', label: 'Rear Delt', pos: [-0.170, 0.440, -0.098] },
+  { key: 'rdelt-r', id: 'shoulders', label: 'Rear Delt', pos: [0.170, 0.440, -0.098] },
+  { key: 'tricep-l', id: 'triceps', label: 'Tricep', pos: [-0.224, 0.355, -0.065] },
+  { key: 'tricep-r', id: 'triceps', label: 'Tricep', pos: [0.224, 0.355, -0.065] },
+  { key: 'glute-l', id: 'glutes', label: 'Glute', pos: [-0.085, 0.050, -0.115] },
+  { key: 'glute-r', id: 'glutes', label: 'Glute', pos: [0.085, 0.050, -0.115] },
+  { key: 'ham-l', id: 'hamstrings', label: 'Hamstring', pos: [-0.102, -0.145, -0.088] },
+  { key: 'ham-r', id: 'hamstrings', label: 'Hamstring', pos: [0.102, -0.145, -0.088] },
+  { key: 'calf-l', id: 'calves', label: 'Calf', pos: [-0.108, -0.440, -0.125] },
+  { key: 'calf-r', id: 'calves', label: 'Calf', pos: [0.108, -0.440, -0.125] },
 ]
 
 function SensorNode({ beacon, status, onHover, isHovered, onSelect }) {

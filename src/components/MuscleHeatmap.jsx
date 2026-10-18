@@ -9,7 +9,7 @@ const RECOVERY_COLORS = {
   fresh: '#22c55e',
 }
 
-export default function MuscleHeatmap({ history, onSelectMuscle }) {
+export default function MuscleHeatmap({ history = [], onSelectMuscle }) {
   const [hoveredMuscle, setHoveredMuscle] = useState(null)
 
   const recoveryStatus = useMemo(() => {
@@ -22,9 +22,10 @@ export default function MuscleHeatmap({ history, onSelectMuscle }) {
       triceps: null,
       forearms: null,
       back: null,
-      lower_back: null,
+      lats: null,         // Added for new Lats beacon
       quads: null,
       hamstrings: null,
+      glutes: null,       // Added for new Glutes beacon
       calves: null,
     }
 
@@ -41,29 +42,66 @@ export default function MuscleHeatmap({ history, onSelectMuscle }) {
         // Fallback: verify that at least one set was actually completed
         session.exercises.forEach((ex) => {
           const hasFinishedSet = ex.sets?.some((s) => s.completed && Number(s.reps) > 0)
-          if (hasFinishedSet && ex.muscle) {
-            trainedMuscles.add(ex.muscle.toLowerCase())
+          if (hasFinishedSet) {
+            if (ex.muscle) trainedMuscles.add(ex.muscle.toLowerCase())
+            if (ex.subGroup) trainedMuscles.add(ex.subGroup.toLowerCase())
           }
         })
       }
 
-      trainedMuscles.forEach((muscle) => {
-        let key = muscle
-        if (['core'].includes(muscle)) key = 'abs'
-        if (['lats', 'traps'].includes(muscle)) key = 'back'
-        if (['legs'].includes(muscle)) {
-          if (muscleLastTrained.quads === null) muscleLastTrained.quads = sessionDate
-          if (muscleLastTrained.hamstrings === null) muscleLastTrained.hamstrings = sessionDate
-          return
-        }
-        if (['arms'].includes(muscle)) {
-          if (muscleLastTrained.biceps === null) muscleLastTrained.biceps = sessionDate
-          if (muscleLastTrained.triceps === null) muscleLastTrained.triceps = sessionDate
-          return
+      trainedMuscles.forEach((rawMuscle) => {
+        const m = rawMuscle.toLowerCase()
+
+        // Core / Abs
+        if (m === 'core' || m === 'abs') {
+          if (!muscleLastTrained.abs) muscleLastTrained.abs = sessionDate
         }
 
-        if (muscleLastTrained[key] === null) {
-          muscleLastTrained[key] = sessionDate
+        // Chest
+        if (m === 'chest') {
+          if (!muscleLastTrained.chest) muscleLastTrained.chest = sessionDate
+        }
+
+        // Shoulders
+        if (m === 'shoulders') {
+          if (!muscleLastTrained.shoulders) muscleLastTrained.shoulders = sessionDate
+        }
+
+        // Arms breakdown
+        if (m === 'arms') {
+          if (!muscleLastTrained.biceps) muscleLastTrained.biceps = sessionDate
+          if (!muscleLastTrained.triceps) muscleLastTrained.triceps = sessionDate
+          if (!muscleLastTrained.forearms) muscleLastTrained.forearms = sessionDate
+        } else if (m === 'biceps') {
+          if (!muscleLastTrained.biceps) muscleLastTrained.biceps = sessionDate
+        } else if (m === 'triceps') {
+          if (!muscleLastTrained.triceps) muscleLastTrained.triceps = sessionDate
+        } else if (m === 'forearms') {
+          if (!muscleLastTrained.forearms) muscleLastTrained.forearms = sessionDate
+        }
+
+        // Back & Lats breakdown
+        if (m === 'back') {
+          if (!muscleLastTrained.back) muscleLastTrained.back = sessionDate
+          if (!muscleLastTrained.lats) muscleLastTrained.lats = sessionDate
+        } else if (m === 'lats') {
+          if (!muscleLastTrained.lats) muscleLastTrained.lats = sessionDate
+        }
+
+        // Legs, Quads, Hamstrings, Glutes & Calves breakdown
+        if (m === 'legs') {
+          if (!muscleLastTrained.quads) muscleLastTrained.quads = sessionDate
+          if (!muscleLastTrained.hamstrings) muscleLastTrained.hamstrings = sessionDate
+          if (!muscleLastTrained.glutes) muscleLastTrained.glutes = sessionDate
+          if (!muscleLastTrained.calves) muscleLastTrained.calves = sessionDate
+        } else if (m === 'quads') {
+          if (!muscleLastTrained.quads) muscleLastTrained.quads = sessionDate
+        } else if (m === 'hamstrings') {
+          if (!muscleLastTrained.hamstrings) muscleLastTrained.hamstrings = sessionDate
+        } else if (m === 'glutes') {
+          if (!muscleLastTrained.glutes) muscleLastTrained.glutes = sessionDate
+        } else if (m === 'calves') {
+          if (!muscleLastTrained.calves) muscleLastTrained.calves = sessionDate
         }
       })
     }

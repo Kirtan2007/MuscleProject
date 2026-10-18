@@ -15,12 +15,28 @@ function Routine({
   copyDayRoutine,
   dayNames,
   updateDayName,
-  onStartWorkout
+  onStartWorkout,
+  reorderDayExercises
 }) {
   const [showCopyModal, setShowCopyModal] = useState(false)
   const [targetCopyDay, setTargetCopyDay] = useState(null)
   const [isEditingName, setIsEditingName] = useState(false)
   const [tempName, setTempName] = useState('')
+
+  const currentExercises =
+    selectedDay && workout && workout[selectedDay] ? workout[selectedDay] : []
+
+  // Move exercise up or down in the sequence
+  const handleMoveExercise = (index, direction) => {
+    const newIndex = index + direction
+    if (newIndex < 0 || newIndex >= currentExercises.length) return
+
+    const updatedExercises = [...currentExercises]
+    const [movedItem] = updatedExercises.splice(index, 1)
+    updatedExercises.splice(newIndex, 0, movedItem)
+
+    reorderDayExercises(selectedDay, updatedExercises)
+  }
 
   const handleClear = () => {
     if (!selectedDay) return
@@ -64,10 +80,7 @@ function Routine({
     setIsEditingName(false)
   }
 
-  const currentExercises =
-    selectedDay && workout && workout[selectedDay] ? workout[selectedDay] : []
-
-return (
+  return (
     <section 
       className="routine-section"
       style={{
@@ -76,10 +89,8 @@ return (
         boxSizing: 'border-box'
       }}
     >
-      {/* 2-Column Layout: Left expands wider, Right takes just what it needs */}
       <div style={{
         display: 'grid',
-        /* Left column gets priority expansion, right column fits the chart snugly */
         gridTemplateColumns: 'minmax(0, 1fr) auto',
         columnGap: '28px',
         alignItems: 'start',
@@ -195,16 +206,80 @@ return (
                 </div>
 
                 <div className="routine-exercises">
-                  {currentExercises.map((exercise) => (
-                    <RoutineCard
+                  {currentExercises.map((exercise, index) => (
+                    <div
                       key={exercise.id}
-                      exercise={exercise}
-                      selectedDay={selectedDay}
-                      addExerciseToDay={addExerciseToDay}
-                      updateExerciseSet={updateExerciseSet}
-                      addExerciseSet={addExerciseSet}
-                      removeExerciseSet={removeExerciseSet}
-                    />
+                      style={{
+                        position: 'relative',
+                        background: '#ffffff',
+                        border: '1px solid rgba(0,0,0,0.08)',
+                        borderRadius: '12px',
+                        marginBottom: '16px',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      {/* Reorder Up / Down Controls Bar */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        background: '#f8fafc',
+                        padding: '6px 16px',
+                        borderBottom: '1px solid #e2e8f0',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: '#64748b'
+                      }}>
+                        <span>Exercise #{index + 1}</span>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => handleMoveExercise(index, -1)}
+                            style={{
+                              background: index === 0 ? '#e2e8f0' : '#0f172a',
+                              color: index === 0 ? '#94a3b8' : '#ffffff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '2px 8px',
+                              cursor: index === 0 ? 'not-allowed' : 'pointer',
+                              fontWeight: 'bold',
+                              fontSize: '12px'
+                            }}
+                            title="Move Up"
+                          >
+                            ▲ Up
+                          </button>
+                          <button
+                            type="button"
+                            disabled={index === currentExercises.length - 1}
+                            onClick={() => handleMoveExercise(index, 1)}
+                            style={{
+                              background: index === currentExercises.length - 1 ? '#e2e8f0' : '#0f172a',
+                              color: index === currentExercises.length - 1 ? '#94a3b8' : '#ffffff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '2px 8px',
+                              cursor: index === currentExercises.length - 1 ? 'not-allowed' : 'pointer',
+                              fontWeight: 'bold',
+                              fontSize: '12px'
+                            }}
+                            title="Move Down"
+                          >
+                            ▼ Down
+                          </button>
+                        </div>
+                      </div>
+
+                      <RoutineCard
+                        exercise={exercise}
+                        selectedDay={selectedDay}
+                        addExerciseToDay={addExerciseToDay}
+                        updateExerciseSet={updateExerciseSet}
+                        addExerciseSet={addExerciseSet}
+                        removeExerciseSet={removeExerciseSet}
+                      />
+                    </div>
                   ))}
                 </div>
               </>
@@ -221,13 +296,13 @@ return (
           )}
         </div>
 
-        {/* RIGHT COLUMN: Snug, centered, and balanced spacing */}
+        {/* RIGHT COLUMN: Volume Distribution Chart */}
         <div style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'flex-start',
-          paddingRight: '12px', /* Balanced outer margin */
+          paddingRight: '12px',
           paddingLeft: '8px'
         }}>
           <div style={{ textAlign: 'center', marginBottom: '12px' }}>

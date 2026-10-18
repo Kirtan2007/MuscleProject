@@ -9,6 +9,7 @@ import { useAuth } from './context/AuthContext'
 import { AuthModal } from './components/AuthModal'
 import Analytics from './components/Analytics'
 import { mapBeaconToGraphMuscle } from './data/muscleMapping'
+import SplitsSection from './components/SplitsSection'
 import { 
   fetchUserRoutines, 
   saveUserRoutineDay, 
@@ -30,6 +31,13 @@ function App() {
   const [targetAnalyticsMuscle, setTargetAnalyticsMuscle] = useState('All')
   const [fromModelDrilldown, setFromModelDrilldown] = useState(false)
   const [selectedSubGroup, setSelectedSubGroup] = useState('All')
+
+  const reorderDayExercises = (day, reorderedExercises) => {
+    setWorkout((prevWorkout) => ({
+      ...prevWorkout,
+      [day]: reorderedExercises
+    }))
+  }
 
   const handleBackToModel = () => {
   setActiveSection(null)
@@ -536,6 +544,12 @@ useEffect(() => {
         >
           Analytics
         </button>
+        <button
+          className={activeSection === 'splits' ? 'active-section' : ''}
+          onClick={() => handleNavClick('splits')}
+        >
+          Splits
+        </button>
 
         {/* Auth Control */}
         {user ? (
@@ -665,6 +679,7 @@ useEffect(() => {
           dayNames={dayNames}
           updateDayName={updateDayName}
           onStartWorkout={handleStartWorkout}
+          reorderDayExercises={reorderDayExercises}
         />
       )}
 
@@ -679,9 +694,19 @@ useEffect(() => {
       {activeSection === 'analytics' && (
         <Analytics 
           history={workoutHistory} 
+          workout={workout}
           targetMuscle={targetAnalyticsMuscle}
           showBackToModel={fromModelDrilldown}
           onBackToModel={handleBackToModel}
+        />
+      )}
+
+      {activeSection === 'splits' && (
+        <SplitsSection 
+          workout={workout}
+          setWorkout={setWorkout}
+          setDayNames={setDayNames}
+          setActiveSection={setActiveSection}
         />
       )}
 

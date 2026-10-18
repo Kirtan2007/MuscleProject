@@ -1,14 +1,20 @@
 import React, { useState, useMemo } from 'react'
 
 const MUSCLE_PALETTE = {
-  Chest: '#10b981',      // Emerald
-  Back: '#06b6d4',       // Cyan
-  Legs: '#3b82f6',       // Blue
-  Shoulders: '#8b5cf6',  // Purple
-  Arms: '#f59e0b',       // Amber
-  Core: '#ec4899',       // Pink
-  Other: '#64748b',      // Slate
+  Chest: '#2563eb',      // Electric Royal Blue
+  Back: '#059669',       // Deep Vivid Emerald
+  Legs: '#d97706',       // Warm Amber / Golden Ochre
+  Shoulders: '#7c3aed',  // Vivid Violet / Indigo
+  Arms: '#06b6d4',       // Bright Cyan / Turquoise
+  Core: '#db2777',       // Hot Magenta / Raspberry
+  Other: '#64748b',      // Cool Slate
 }
+
+// Hypertrophy volume threshold (sets per week)
+const MIN_HYPERTROPHY_SETS = 6
+
+// Core tracked muscle groups to ensure missing ones are accounted for
+const PRIMARY_MUSCLE_GROUPS = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core']
 
 function normalizeMuscle(rawMuscle) {
   if (!rawMuscle) return 'Other'
@@ -30,8 +36,12 @@ export default function RoutineBalanceDonut({ workout }) {
   const circumference = 2 * Math.PI * radius
 
   // Tally sets per muscle across Days 1 - 7
-  const { segments, totalSets } = useMemo(() => {
+  const { segments, legendItems, totalSets } = useMemo(() => {
+    // Initialize primary muscles to 0 to catch missing groups
     const counts = {}
+    PRIMARY_MUSCLE_GROUPS.forEach((m) => {
+      counts[m] = 0
+    })
 
     if (workout) {
       Object.values(workout).forEach((dayExercises) => {
@@ -48,23 +58,44 @@ export default function RoutineBalanceDonut({ workout }) {
     const total = Object.values(counts).reduce((acc, curr) => acc + curr, 0)
     let accumulatedOffset = 0
 
-    const computedSegments = Object.entries(counts).map(([muscle, count]) => {
-      const percentage = total > 0 ? (count / total) * 100 : 0
-      const strokeLength = total > 0 ? (count / total) * circumference : 0
-      const strokeDashoffset = accumulatedOffset
-      accumulatedOffset -= strokeLength
+    // Only non-zero items form the physical SVG donut slices
+    const activeSegments = Object.entries(counts)
+      .filter(([_, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([muscle, count]) => {
+        const percentage = total > 0 ? (count / total) * 100 : 0
+        const strokeLength = total > 0 ? (count / total) * circumference : 0
+        const strokeDashoffset = accumulatedOffset
+        accumulatedOffset -= strokeLength
 
-      return {
+        return {
+          muscle,
+          count,
+          percentage,
+          strokeLength,
+          strokeDashoffset,
+          color: MUSCLE_PALETTE[muscle] || '#64748b',
+        }
+      })
+
+    // Legend displays all primary muscles (active sorted first, 0-set groups at bottom)
+    const allLegend = Object.entries(counts)
+      .map(([muscle, count]) => ({
         muscle,
         count,
-        percentage,
-        strokeLength,
-        strokeDashoffset,
+        percentage: total > 0 ? (count / total) * 100 : 0,
         color: MUSCLE_PALETTE[muscle] || '#64748b',
-      }
-    })
+        isUnderTrained: count < MIN_HYPERTROPHY_SETS,
+        isMissing: count === 0,
+        needed: Math.max(0, MIN_HYPERTROPHY_SETS - count)
+      }))
+      .sort((a, b) => b.count - a.count)
 
-    return { segments: computedSegments, totalSets: total }
+    return { 
+      segments: activeSegments, 
+      legendItems: allLegend, 
+      totalSets: total 
+    }
   }, [workout, circumference])
 
   if (totalSets === 0) {
@@ -81,7 +112,7 @@ export default function RoutineBalanceDonut({ workout }) {
   }
 
   const activeFocus = hoveredGroup
-    ? segments.find((s) => s.muscle === hoveredGroup)
+    ? legendItems.find((s) => s.muscle === hoveredGroup)
     : null
 
   return (
@@ -92,11 +123,10 @@ export default function RoutineBalanceDonut({ workout }) {
         alignItems: 'center',
         gap: '16px',
         width: '100%',
-        maxWidth: '360px'
+        maxWidth: '380px'
       }}
     >
-
-      {/* Visual Row: Larger Donut + Muscle List side by side */}
+      {/* Visual Row: Donut + Muscle List side by side */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -104,7 +134,7 @@ export default function RoutineBalanceDonut({ workout }) {
         gap: '24px',
         width: '100%'
       }}>
-        {/* SVG Donut Ring with Increased Radius & Frame (210px) */}
+        {/* SVG Donut Ring */}
         <div 
           style={{ position: 'relative', width: '190px', height: '190px', flexShrink: 0 }}
           onMouseLeave={() => setHoveredGroup(null)}
@@ -133,7 +163,7 @@ export default function RoutineBalanceDonut({ workout }) {
               style={{ pointerEvents: 'none' }}
             />
 
-            {/* Slices with pointer events & hover expansions */}
+            {/* Slices */}
             {segments.map((seg) => {
               const isHovered = hoveredGroup === seg.muscle
               return (
@@ -208,8 +238,8 @@ export default function RoutineBalanceDonut({ workout }) {
                 <span style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
                   {activeFocus.count}
                 </span>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>
-                  {Math.round(activeFocus.percentage)}% of routine
+                <span style={{ fontSize: '11px', color: activeFocus.isUnderTrained ? '#e11d48' : '#64748b', fontWeight: activeFocus.isUnderTrained ? 600 : 400 }}>
+                  {activeFocus.isUnderTrained ? 'Low volume' : `${Math.round(activeFocus.percentage)}% of routine`}
                 </span>
               </>
             ) : (
@@ -228,60 +258,110 @@ export default function RoutineBalanceDonut({ workout }) {
           </div>
         </div>
 
-        {/* Vertical Muscle List with Scaling */}
+        {/* Vertical Muscle Legend with Under-Trained Warnings */}
         <div style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '7px',
-          flex: '1 1 auto'
+          gap: '6px',
+          flex: '1 1 auto',
+          position: 'relative'
         }}>
-          {segments.map((seg) => {
-            const isHovered = hoveredGroup === seg.muscle
+          {legendItems.map((item) => {
+            const isHovered = hoveredGroup === item.muscle
+            const showWarning = item.isUnderTrained
+
             return (
               <div
-                key={seg.muscle}
-                onMouseEnter={() => setHoveredGroup(seg.muscle)}
+                key={item.muscle}
+                onMouseEnter={() => setHoveredGroup(item.muscle)}
                 onMouseLeave={() => setHoveredGroup(null)}
                 style={{
+                  position: 'relative',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  gap: '18px',
-                  padding: '5px 12px',
-                  borderRadius: '8px',
+                  gap: '12px',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
                   cursor: 'pointer',
-                  background: isHovered ? 'rgba(0, 0, 0, 0.06)' : 'transparent',
-                  transform: isHovered ? 'scale(1.05) translateX(3px)' : 'scale(1)',
+                  background: isHovered 
+                    ? (showWarning ? 'rgba(239, 68, 68, 0.08)' : 'rgba(0, 0, 0, 0.05)') 
+                    : (showWarning ? 'rgba(239, 68, 68, 0.03)' : 'transparent'),
+                  borderBottom: showWarning ? '1px dashed #ef4444' : '1px solid transparent',
+                  transform: isHovered ? 'scale(1.02) translateX(2px)' : 'scale(1)',
                   transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}
               >
+                {/* Dot & Muscle Name */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{
-                    width: isHovered ? '10px' : '8px',
-                    height: isHovered ? '10px' : '8px',
+                    width: '8px',
+                    height: '8px',
                     borderRadius: '50%',
-                    backgroundColor: seg.color,
-                    boxShadow: isHovered ? `0 0 8px ${seg.color}` : 'none',
+                    backgroundColor: item.isMissing ? 'transparent' : item.color,
+                    border: item.isMissing ? '2px dashed #94a3b8' : 'none',
+                    boxShadow: isHovered && !item.isMissing ? `0 0 6px ${item.color}` : 'none',
                     transition: 'all 0.18s ease'
                   }} />
                   <span style={{
                     fontSize: '13px',
                     fontWeight: isHovered ? 700 : 600,
-                    color: isHovered ? seg.color : '#334155',
+                    color: showWarning ? '#b91c1c' : (isHovered ? item.color : '#334155'),
                     transition: 'color 0.18s ease'
                   }}>
-                    {seg.muscle}
+                    {item.muscle}
                   </span>
                 </div>
 
+                {/* Set count badge */}
                 <span style={{ 
-                  fontSize: '13px', 
-                  color: isHovered ? '#0f172a' : '#64748b', 
-                  fontWeight: isHovered ? 700 : 600,
+                  fontSize: '12px', 
+                  color: showWarning ? '#b91c1c' : (isHovered ? '#0f172a' : '#64748b'), 
+                  fontWeight: showWarning || isHovered ? 700 : 500,
                   transition: 'color 0.18s ease'
                 }}>
-                  {seg.count}s/week
+                  {item.count}s/week
                 </span>
+
+                {/* Hover Tooltip Alert */}
+                {showWarning && isHovered && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      bottom: '100%',
+                      marginBottom: '6px',
+                      background: '#0f172a',
+                      color: '#ffffff',
+                      fontSize: '11px',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      whiteSpace: 'nowrap',
+                      zIndex: 30,
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    <span style={{ color: '#f87171', fontWeight: 700 }}>
+                      {item.isMissing ? 'Missing Muscle' : 'Low Volume'}:
+                    </span>{' '}
+                    {item.isMissing 
+                      ? `0 sets planned. Min 6s/week recommended.` 
+                      : `Add ${item.needed} more set${item.needed > 1 ? 's' : ''} to hit 6s/week.`}
+                    
+                    {/* Tooltip downward pointer arrow */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: '18px',
+                      width: 0,
+                      height: 0,
+                      borderLeft: '4px solid transparent',
+                      borderRight: '4px solid transparent',
+                      borderTop: '4px solid #0f172a'
+                    }} />
+                  </div>
+                )}
               </div>
             )
           })}

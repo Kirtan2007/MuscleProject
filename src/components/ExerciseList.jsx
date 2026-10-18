@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react'
-import exercises from '../data/exercises'
+import { EXERCISES } from '../data/exercises'
 
 function ExerciseList({
   selectedMuscle,
@@ -8,7 +8,7 @@ function ExerciseList({
   setSearchQuery,
   addExerciseToDay,
   removeExercise,
-  workout,
+  workout = {},
   isExerciseAdded,
   openExerciseAssignment,
   routineAddMode,
@@ -31,16 +31,17 @@ function ExerciseList({
   }, [])
 
   // Filter exercises by Muscle, Sub-Group, and Multi-field Search
-  const filteredExercises = exercises.filter((exercise) => {
+  const filteredExercises = (EXERCISES || []).filter((exercise) => {
     const matchesMuscle =
       selectedMuscle === 'All' || exercise.muscle === selectedMuscle
 
     const matchesSubGroup =
-      selectedSubGroup === 'All' ||
-      exercise.subGroup === selectedSubGroup ||
-      (exercise.subGroup && exercise.subGroup.includes(selectedSubGroup))
+    selectedSubGroup === 'All' ||
+    (exercise.subGroup &&
+      (exercise.subGroup.toLowerCase().includes(selectedSubGroup.toLowerCase().replace(/s$/, '')) ||
+       selectedSubGroup.toLowerCase().replace(/s$/, '').includes(exercise.subGroup.toLowerCase())))
 
-    const cleanQuery = searchQuery.toLowerCase().trim()
+    const cleanQuery = (searchQuery || '').toLowerCase().trim()
     const matchesSearch =
       !cleanQuery ||
       exercise.name.toLowerCase().includes(cleanQuery) ||
@@ -88,12 +89,12 @@ function ExerciseList({
         <div className="exercise-grid">
           {filteredExercises.map((exercise) => {
             const assignedDays = Object.keys(workout).filter((day) =>
-              workout[day].some(
+              workout[day]?.some(
                 (selectedExercise) => selectedExercise.id === exercise.id
               )
             )
 
-            const exerciseIsAdded = isExerciseAdded(exercise.id)
+            const exerciseIsAdded = isExerciseAdded ? isExerciseAdded(exercise.id) : false
 
             const isAddedToCurrentDay =
               selectedDay !== null &&
@@ -103,11 +104,35 @@ function ExerciseList({
 
             return (
               <div className="exercise-card" key={exercise.id}>
-                <img
-                  className="exercise-image"
-                  src={exercise.image}
-                  alt={exercise.name}
-                />
+                {exercise.image ? (
+                  <img
+                    className="exercise-image"
+                    src={exercise.image}
+                    alt={exercise.name}
+                    onError={(e) => {
+                      e.target.style.display = 'none'
+                      e.target.nextSibling.style.display = 'flex'
+                    }}
+                  />
+                ) : null}
+
+                {/* Lightweight Fallback Silhouette Badge if image is missing */}
+                <div
+                  className="exercise-image-placeholder"
+                  style={{
+                    display: exercise.image ? 'none' : 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '110px',
+                    background: '#f1f5f9',
+                    borderRadius: '8px 8px 0 0',
+                    color: '#64748b',
+                    fontSize: '12px',
+                    fontWeight: 700
+                  }}
+                >
+                  {exercise.equipment || 'Exercise'}
+                </div>
 
                 <div className="exercise-info">
                   <h3 style={{ margin: '0 0 6px 0' }}>{exercise.name}</h3>
@@ -159,7 +184,7 @@ function ExerciseList({
                       className={
                         isAddedToCurrentDay ? 'remove-button' : 'add-button'
                       }
-                      onClick={() => handleExerciseFromRoutine(exercise)}
+                      onClick={() => handleExerciseFromRoutine && handleExerciseFromRoutine(exercise)}
                     >
                       {isAddedToCurrentDay
                         ? `Remove from ${currentDayLabel}`
@@ -170,7 +195,7 @@ function ExerciseList({
                       {!exerciseIsAdded ? (
                         <button
                           className="add-button"
-                          onClick={() => openExerciseAssignment(exercise)}
+                          onClick={() => openExerciseAssignment && openExerciseAssignment(exercise)}
                         >
                           Add Exercise
                         </button>
@@ -178,14 +203,14 @@ function ExerciseList({
                         <>
                           <button
                             className="add-button"
-                            onClick={() => openExerciseAssignment(exercise)}
+                            onClick={() => openExerciseAssignment && openExerciseAssignment(exercise)}
                           >
                             Add More
                           </button>
 
                           <button
                             className="remove-button"
-                            onClick={() => removeExercise(exercise.id)}
+                            onClick={() => removeExercise && removeExercise(exercise.id)}
                           >
                             Remove
                           </button>

@@ -4,7 +4,8 @@ import ProgressionGraph from './ProgressionGraph'
 import MuscleBalanceDistribution from './MuscleBalanceDistribution'
 
 export default function Analytics({
-  history,
+  history = [],
+  workout = {},              // 1. Added workout prop with default fallback
   targetMuscle = 'All',
   showBackToModel = false,
   onBackToModel
@@ -63,7 +64,11 @@ export default function Analytics({
             </div>
           )}
 
-          <ProgressionGraph history={history} targetMuscle={targetMuscle} />
+          <ProgressionGraph 
+            history={history} 
+            workout={workout} 
+            targetMuscle={targetMuscle} // 2. Fixed: uses targetMuscle prop
+          />
         </div>
 
         {/* V5.3: Muscle Training Balance Breakdown */}
